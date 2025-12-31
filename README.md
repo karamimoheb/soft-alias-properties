@@ -1,7 +1,4 @@
-# soft-alias-properties
-A lightweight Obsidian plugin that syncs friendly alias properties into folder-namespaced frontmatter keys (e.g., `priority` → `projects__priority`) with optional per-folder YAML templates and cleaned-up property suggestions.
 
-```markdown
 # Namespaced Properties (Soft Aliases)
 
 A lightweight Obsidian plugin that keeps **folder-scoped properties clean** by syncing human-friendly **alias keys** (e.g. `priority`) into **folder-namespaced storage keys** in the background (e.g. `projects__priority`).  
@@ -179,11 +176,12 @@ projects__owner:
 
 ## Commands
 
-* **Show Alias Inspector**
-  Displays alias vs storage values for the active note (debug helper).
-
-* **Add managed property** (optional)
-  Lets you add a managed property quickly without relying on a noisy dropdown.
+- **Show Alias Inspector**  
+    Displays alias vs storage values for the active note (debug helper).
+    
+- **Add managed property** (optional)  
+    Lets you add a managed property quickly without relying on a noisy dropdown.
+    
 
 ---
 
@@ -192,14 +190,18 @@ projects__owner:
 If you want to temporarily or permanently revert:
 
 1. Use **Restore (active file)** or **Restore (all scoped)** from the plugin settings.
+    
 2. Optionally enable **Delete storage keys on restore** for a full revert.
+    
 
 ---
 
 ## Notes / limitations
 
-* This plugin is intentionally “soft”: it does not modify Obsidian’s metadata cache or native property engine.
-* Storage keys are regular frontmatter keys, so they will appear in global property systems unless filtered by UI (the plugin can hide them in note property suggestions).
+- This plugin is intentionally “soft”: it does not modify Obsidian’s metadata cache or native property engine.
+    
+- Storage keys are regular frontmatter keys, so they will appear in global property systems unless filtered by UI (the plugin can hide them in note property suggestions).
+    
 
 ---
 
@@ -207,14 +209,17 @@ If you want to temporarily or permanently revert:
 
 ### “It doesn’t sync”
 
-* Make sure the note path matches at least one **Folder prefix** rule.
-* Make sure the alias key is included in **Managed Alias Keys**.
-* Enable **Debug logs** and check the console.
+- Make sure the note path matches at least one **Folder prefix** rule.
+    
+- Make sure the alias key is included in **Managed Alias Keys**.
+    
+- Enable **Debug logs** and check the console.
+    
 
 ### “Storage keys disappear in Bases”
 
-* Ensure **Hide storage keys in suggestions** is enabled only for notes (the plugin is designed to not filter Bases).
-* If you customized the code, verify the “focus-gated” filter is still present.
-
----
+- Ensure **Hide storage keys in suggestions** is enabled only for notes (the plugin is designed to not filter Bases).
+    
+- If you customized the code, verify the “focus-gated” filter is still present.
+    
 
