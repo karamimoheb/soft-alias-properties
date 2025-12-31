@@ -1,0 +1,11 @@
+{
+  "id": "soft-alias-properties",
+  "name": "Namespaced Properties (Soft Aliases)",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Keeps folder-scoped property values clean by syncing alias keys (e.g., priority) into folder-namespaced storage keys in the background. Includes optional per-folder YAML templates and hides noisy storage keys from note property suggestions.",
+  "author": "Moheb",
+  "authorUrl": "https://github.com/your-username",
+  "isDesktopOnly": false
+}
+

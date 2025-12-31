@@ -1,0 +1,26 @@
+{
+  "folderRules": [
+    {
+      "folderPrefix": "index/",
+      "namespaceSlug": "index",
+      "templateYaml": "owner: moheb\n",
+      "templateEnabled": true
+    },
+    {
+      "folderPrefix": "note-md",
+      "namespaceSlug": "Note"
+    }
+  ],
+  "managedAliasKeys": "priority,status,owner",
+  "removePlainAliasKeysOnSync": true,
+  "storagePrefix": "",
+  "storageSeparator": "__",
+  "deleteStorageKeysOnRestore": true,
+  "hideStorageKeysInPropertyNameSuggest": true,
+  "enableQuickAddManagedProperty": true,
+  "enableAutoTemplateOnCreate": true,
+  "applyTemplateOnlyIfNoFrontmatter": true,
+  "debounceMs": 300,
+  "debugLogs": true,
+  "folderRulesJson": "[\n  { \"folderPrefix\": \"index/\", \"namespaceSlug\": \"index\" },\n  { \"folderPrefix\": \"clients/\", \"namespaceSlug\": \"clients\" }\n]\n"
+}
