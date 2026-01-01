@@ -7,6 +7,8 @@ import {
   PluginSettingTab,
   Setting,
   TAbstractFile,
+  TFolder,
+  AbstractInputSuggest,
   TFile,
   WorkspaceLeaf,
   parseYaml,
@@ -238,6 +240,50 @@ class ManagedPropertyPickerModal extends Modal {
 
 /** ---------- Settings UI (Modern + Accordion + Live filter) ---------- */
 
+/** ---------- Folder path suggest (Settings) ---------- */
+
+class FolderPrefixSuggest extends AbstractInputSuggest<TFolder> {
+  private inputElRef: HTMLInputElement;
+
+  constructor(app: App, inputEl: HTMLInputElement) {
+    super(app, inputEl);
+    this.inputElRef = inputEl;
+  }
+
+  getSuggestions(inputStr: string): TFolder[] {
+    const q = (inputStr || "").trim().toLowerCase();
+
+    const all = this.app.vault.getAllLoadedFiles();
+    const folders = all.filter((f): f is TFolder => f instanceof TFolder);
+
+    const filtered = q
+      ? folders.filter((f) => f.path.toLowerCase().includes(q))
+      : folders;
+
+    // exclude .obsidian
+    const cleaned = filtered.filter((f) => !f.path.startsWith(".obsidian"));
+
+    cleaned.sort((a, b) => (a.path.length - b.path.length) || a.path.localeCompare(b.path));
+
+    return cleaned.slice(0, 60);
+  }
+
+  renderSuggestion(folder: TFolder, el: HTMLElement): void {
+    el.setText(folder.path.endsWith("/") ? folder.path : folder.path + "/");
+  }
+
+  selectSuggestion(folder: TFolder): void {
+    const val = folder.path.endsWith("/") ? folder.path : folder.path + "/";
+    this.inputElRef.value = val;
+
+    // Trigger input + change so Settings handlers pick up the value
+    this.inputElRef.dispatchEvent(new Event("input", { bubbles: true }));
+    this.inputElRef.dispatchEvent(new Event("change", { bubbles: true }));
+
+    this.close();
+  }
+}
+
 class SoftAliasSettingTab extends PluginSettingTab {
   private plugin: SoftAliasNamespacedProperties;
 
@@ -424,8 +470,8 @@ class SoftAliasSettingTab extends PluginSettingTab {
     const header = item.createEl("div", { cls: "softalias-acc-header" });
 
     const left = header.createEl("div", { cls: "softalias-acc-title" });
-    left.createEl("strong", { text: title });
-    left.createEl("div", { cls: "softalias-acc-sub", text: subtitle });
+    const titleEl = left.createEl("strong", { text: title });
+    const subEl = left.createEl("div", { cls: "softalias-acc-sub", text: subtitle });
 
     const actions = header.createEl("div", { cls: "softalias-acc-actions" });
     const body = item.createEl("div", { cls: "softalias-acc-body" });
@@ -435,7 +481,7 @@ class SoftAliasSettingTab extends PluginSettingTab {
       item.setAttribute("data-open", open ? "0" : "1");
     };
 
-    return { item, header, actions, body };
+    return { item, header, actions, body, titleEl, subEl };
   }
 
   display(): void {
@@ -455,9 +501,20 @@ class SoftAliasSettingTab extends PluginSettingTab {
       true
     );
 
-    // Live filter row
+    // Live filter (NO re-render; avoid mobile keyboard closing)
     const filterRow = scope.body.createEl("div", { cls: "softalias-row" });
     const filterInputWrap = filterRow.createEl("div", { cls: "softalias-input" });
+
+    const ruleItems: HTMLElement[] = [];
+
+    const applyRuleFilter = () => {
+      const q = (this.ruleFilter || "").trim().toLowerCase();
+      for (const el of ruleItems) {
+        const hay = (el.dataset.softaliasSearch || "").toLowerCase();
+        const show = !q || hay.includes(q);
+        el.style.display = show ? "" : "none";
+      }
+    };
 
     new Setting(filterInputWrap)
       .setName("Search rules")
@@ -467,36 +524,36 @@ class SoftAliasSettingTab extends PluginSettingTab {
         t.setValue(this.ruleFilter);
         t.onChange((v) => {
           this.ruleFilter = v;
-          this.display();
+          applyRuleFilter();
         });
       });
 
     const acc = scope.body.createEl("div", { cls: "softalias-accordion" });
 
-    const q = this.ruleFilter.trim().toLowerCase();
-    const filtered = this.plugin.settings.folderRules
-      .map((r, i) => ({ r, i }))
-      .filter(({ r }) => {
-        if (!q) return true;
-        return (
-          (r.folderPrefix || "").toLowerCase().includes(q) ||
-          (r.namespaceSlug || "").toLowerCase().includes(q)
-        );
-      });
-
-    if (filtered.length === 0) {
+    if (this.plugin.settings.folderRules.length === 0) {
       const empty = acc.createEl("div", { cls: "softalias-acc-item" });
       const hdr = empty.createEl("div", { cls: "softalias-acc-header" });
-      hdr.createEl("div", { cls: "softalias-muted", text: q ? "No matching rules." : "No rules yet." });
+      hdr.createEl("div", { cls: "softalias-muted", text: "No rules yet." });
     }
 
-    filtered.forEach(({ r: rule, i: idx }, localIndex) => {
-      const prefix = (rule.folderPrefix || "").trim() || "(no prefix)";
-      const slug = (rule.namespaceSlug || "").trim() || "(no slug)";
-      const title = `${prefix} → ${slug}`;
-      const subtitle = `Template: ${rule.templateEnabled ? "On" : "Off"}`;
+    this.plugin.settings.folderRules.forEach((rule, idx) => {
+      const getTitle = () => {
+        const prefix = (rule.folderPrefix || "").trim() || "(no prefix)";
+        const slug = (rule.namespaceSlug || "").trim() || "(no slug)";
+        return `${prefix} → ${slug}`;
+      };
+      const getSubtitle = () => `Template: ${rule.templateEnabled ? "On" : "Off"}`;
 
-      const { actions, body } = this.makeRuleAccordionItem(acc, title, subtitle, localIndex === 0 && !q);
+      const { actions, body, item, titleEl, subEl } = this.makeRuleAccordionItem(
+        acc,
+        getTitle(),
+        getSubtitle(),
+        idx === 0 && !this.ruleFilter.trim()
+      );
+
+      // search text for live filter
+      item.dataset.softaliasSearch = `${rule.folderPrefix || ""} ${rule.namespaceSlug || ""}`;
+      ruleItems.push(item);
 
       // Header icon actions
       this.iconButton(actions, "wand-2", "Normalize all files under this prefix", async () => {
@@ -513,7 +570,7 @@ class SoftAliasSettingTab extends PluginSettingTab {
       this.iconButton(actions, "trash-2", "Remove rule", async () => {
         this.plugin.settings.folderRules.splice(idx, 1);
         await this.plugin.saveSettings();
-        this.display();
+        this.display(); // ok to re-render on destructive actions
       });
 
       // Body fields
@@ -525,10 +582,18 @@ class SoftAliasSettingTab extends PluginSettingTab {
         .addText((t) => {
           t.setPlaceholder("index/projects/");
           t.setValue(rule.folderPrefix || "");
+          
+          // ✅ Folder picker suggestions (vault folders)
+          new FolderPrefixSuggest(this.app, t.inputEl);
+
           t.onChange(async (val) => {
             this.plugin.settings.folderRules[idx].folderPrefix = val;
             await this.plugin.saveSettings();
-            this.display();
+
+            // Update header text without re-render (mobile keyboard safe)
+            titleEl.textContent = getTitle();
+            item.dataset.softaliasSearch = `${this.plugin.settings.folderRules[idx].folderPrefix || ""} ${this.plugin.settings.folderRules[idx].namespaceSlug || ""}`;
+            applyRuleFilter();
           });
         });
 
@@ -541,7 +606,10 @@ class SoftAliasSettingTab extends PluginSettingTab {
           t.onChange(async (val) => {
             this.plugin.settings.folderRules[idx].namespaceSlug = val.trim();
             await this.plugin.saveSettings();
-            this.display();
+
+            titleEl.textContent = getTitle();
+            item.dataset.softaliasSearch = `${this.plugin.settings.folderRules[idx].folderPrefix || ""} ${this.plugin.settings.folderRules[idx].namespaceSlug || ""}`;
+            applyRuleFilter();
           });
         });
 
@@ -553,7 +621,9 @@ class SoftAliasSettingTab extends PluginSettingTab {
           tg.onChange(async (v) => {
             this.plugin.settings.folderRules[idx].templateEnabled = v;
             await this.plugin.saveSettings();
-            this.display();
+
+            // update subtitle without re-render
+            subEl.textContent = getSubtitle();
           });
         });
 
@@ -565,13 +635,18 @@ class SoftAliasSettingTab extends PluginSettingTab {
       label.style.marginBottom = "6px";
 
       const ta = body.createEl("textarea", { cls: "softalias-textarea" });
-      ta.placeholder = `priority:\nstatus: draft\nowner:\n`;
+      ta.placeholder = `priority:
+status: draft
+owner:
+`;
       ta.value = rule.templateYaml || "";
       ta.oninput = async () => {
         this.plugin.settings.folderRules[idx].templateYaml = ta.value;
         await this.plugin.saveSettings();
       };
     });
+
+    applyRuleFilter();
 
     new Setting(scope.body).addButton((btn) => {
       btn.setButtonText("Add rule");
@@ -626,6 +701,20 @@ class SoftAliasSettingTab extends PluginSettingTab {
       false
     );
 
+    const updateStoragePreview = (previewEl: HTMLElement) => {
+      const exampleSlug =
+        this.plugin.settings.folderRules.find((r) => (r.namespaceSlug || "").trim())?.namespaceSlug.trim() ||
+        "projects";
+      const exampleAlias = parseManagedKeys(this.plugin.settings.managedAliasKeys)[0] || "priority";
+      const exampleStorage = this.plugin.makeStorageKey(exampleSlug, exampleAlias);
+      previewEl.textContent = `Example storage key: ${exampleStorage}`;
+    };
+
+    const preview = storageSec.body.createEl("div", { text: "" });
+    preview.style.opacity = "0.85";
+    preview.style.marginTop = "6px";
+    updateStoragePreview(preview);
+
     new Setting(storageSec.body)
       .setName("Storage key prefix")
       .setDesc('Set to empty "" if you want keys like "index__priority".')
@@ -635,7 +724,7 @@ class SoftAliasSettingTab extends PluginSettingTab {
           this.plugin.settings.storagePrefix = value ?? "";
           await this.plugin.saveSettings();
           this.plugin.refreshSuggestObserver();
-          this.display();
+          updateStoragePreview(preview); // no re-render (mobile keyboard safe)
         });
       });
 
@@ -648,17 +737,9 @@ class SoftAliasSettingTab extends PluginSettingTab {
           this.plugin.settings.storageSeparator = (value || "__").trim() || "__";
           await this.plugin.saveSettings();
           this.plugin.refreshSuggestObserver();
-          this.display();
+          updateStoragePreview(preview);
         });
       });
-
-    const exampleSlug =
-      this.plugin.settings.folderRules.find((r) => r.namespaceSlug.trim())?.namespaceSlug.trim() || "projects";
-    const exampleAlias = parseManagedKeys(this.plugin.settings.managedAliasKeys)[0] || "priority";
-    const exampleStorage = this.plugin.makeStorageKey(exampleSlug, exampleAlias);
-    const preview = storageSec.body.createEl("div", { text: `Example storage key: ${exampleStorage}` });
-    preview.style.opacity = "0.85";
-    preview.style.marginTop = "6px";
 
     /** -------- Section: UX Improvements -------- */
     const uxSec = this.makeSection(
